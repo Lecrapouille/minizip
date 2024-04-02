@@ -36,7 +36,7 @@
 
 */
 
-#include <memory.h>
+#include <string.h>
 
 #include "fileenc.h"
 
@@ -50,14 +50,16 @@ extern "C"
 /* buffers and using 32 bit operations          */
 
 static void encr_data(unsigned char data[], unsigned long d_len, fcrypt_ctx cx[1])
-{   unsigned long i = 0, pos = cx->encr_pos;
+{
+    unsigned int i = 0, pos = cx->encr_pos;
 
-    while(i < d_len)
+    while (i < d_len)
     {
-        if(pos == AES_BLOCK_SIZE)
-        {   unsigned int j = 0;
+        if (pos == AES_BLOCK_SIZE)
+        {
+            unsigned int j = 0;
             /* increment encryption nonce   */
-            while(j < 8 && !++cx->nonce[j])
+            while (j < 8 && !++cx->nonce[j])
                 ++j;
             /* encrypt the nonce to form next xor buffer    */
             aes_encrypt(cx->nonce, cx->encr_bfr, cx->encr_ctx);
@@ -81,10 +83,10 @@ int fcrypt_init(
     fcrypt_ctx      cx[1])                  /* the file encryption context (output) */
 {   unsigned char kbuf[2 * MAX_KEY_LENGTH + PWD_VER_LENGTH];
 
-    if(pwd_len > MAX_PWD_LENGTH)
+    if (pwd_len > MAX_PWD_LENGTH)
         return PASSWORD_TOO_LONG;
 
-    if(mode < 1 || mode > 3)
+    if (mode < 1 || mode > 3)
         return BAD_MODE;
 
     cx->mode = mode;
@@ -104,7 +106,7 @@ int fcrypt_init(
     aes_encrypt_key(kbuf, KEY_LENGTH(mode), cx->encr_ctx);
 
     /* initialise for authentication using key 2        */
-    hmac_sha_begin(cx->auth_ctx);
+    hmac_sha_begin(HMAC_SHA1, cx->auth_ctx);
     hmac_sha_key(kbuf + KEY_LENGTH(mode), KEY_LENGTH(mode), cx->auth_ctx);
 
 #ifdef PASSWORD_VERIFIER

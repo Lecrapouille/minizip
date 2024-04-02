@@ -18,13 +18,12 @@ project("minizip")
 # set cmake debug postfix to d
 set(CMAKE_DEBUG_POSTFIX "d")
 
-if(BUILD_TEST OR BUILD_SHARED_LIBS)
-   find_package(ZLIB REQUIRED)
-endif()
-
-set(MINIZIP_SRC "ioapi.c"
+set(MINIZIP_SRC "crypt.c"
+  "ioapi.c"
   "ioapi_buf.c"
   "ioapi_mem.c"
+  "minishared.c"
+  "tmzip.c"
   "unzip.c"
   "zip.c")
 
@@ -32,12 +31,27 @@ set(MINIZIP_PUBLIC_HEADERS "crypt.h"
   "ioapi.h"
   "ioapi_buf.h"
   "ioapi_mem.h"
+  "minishared.h"
+  "tmzip.h"
   "unzip.h"
   "zip.h")
 
 if(WIN32)
   list(APPEND MINIZIP_SRC "iowin32.c")
   list(APPEND MINIZIP_PUBLIC_HEADERS "iowin32.h")
+  add_definitions(-D_CRT_SECURE_NO_DEPRECATE)
+endif()
+
+if(UNIX)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3")
+  add_definitions(-D__USE_FILE_OFFSET64)
+  add_definitions(-D__USE_LARGEFILE64)
+  add_definitions(-D_LARGEFILE64_SOURCE)
+  add_definitions(-D_FILE_OFFSET_BIT=64)
+endif()
+
+if(CMAKE_C_COMPILER MATCHES ".*clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse3 -msse4.1 -maes")
 endif()
 
 # create minizip library
@@ -50,7 +64,7 @@ if(USE_AES)
     aes/aescrypt.c
     aes/aeskey.c
     aes/aestab.c
-    aes/entropy.c
+    aes/aes_ni.c
     aes/fileenc.c
     aes/hmac.c
     aes/prng.c
@@ -59,12 +73,11 @@ if(USE_AES)
 
   set(AES_PUBLIC_HEADERS
     aes/aes.h
-    aes/aes_via_ace.h
+    aes/aes_ni.h
     aes/aesopt.h
     aes/aestab.h
     aes/brg_endian.h
     aes/brg_types.h
-    aes/entropy.h
     aes/fileenc.h
     aes/hmac.h
     aes/prng.h
@@ -80,7 +93,7 @@ if(USE_AES)
 
   target_link_libraries(minizip aes)
 
-  install(TARGETS aes EXPORT zlib-exports
+  install(TARGETS aes EXPORT minizip-exports
     INCLUDES DESTINATION "include"
     RUNTIME DESTINATION  "bin"
     LIBRARY DESTINATION  "lib"
@@ -93,13 +106,13 @@ endif()
 # Looking for zlib.h
 include_directories("../zlib-ng/build/")
 
-install(TARGETS minizip EXPORT zlib-exports
+install(TARGETS minizip EXPORT minizip-exports
   INCLUDES DESTINATION "include"
   RUNTIME DESTINATION "bin"
   LIBRARY DESTINATION "lib"
   ARCHIVE DESTINATION "lib")
 
-install(EXPORT zlib-exports
+install(EXPORT minizip-exports
         DESTINATION "cmake"
         NAMESPACE "MINIZIP::")
 
@@ -109,10 +122,10 @@ install(FILES ${MINIZIP_PUBLIC_HEADERS}
 option (BUILD_TEST "enabled building of executables minizip and miniunz. Requires ZLIB!" OFF)
 if(BUILD_TEST)
   add_executable(miniunz_exec miniunz.c)
-  target_link_libraries(miniunz_exec minizip ZLIB::ZLIB)
+  target_link_libraries(miniunz_exec minizip)
 
   add_executable(minizip_exec minizip.c)
-  target_link_libraries(minizip_exec minizip ZLIB::ZLIB)
+  target_link_libraries(minizip_exec minizip)
 
   install(TARGETS miniunz_exec minizip_exec
           RUNTIME DESTINATION "bin")
