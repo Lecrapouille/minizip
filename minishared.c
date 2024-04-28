@@ -261,7 +261,7 @@ int is_large_file(const char *path)
     pos = ftello64(handle);
     fclose(handle);
 
-    printf("file : %s is %lld bytes\n", path, pos);
+    printf("file : %s is %ld bytes\n", path, pos);
 
     return (pos >= UINT32_MAX);
 }
