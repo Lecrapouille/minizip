@@ -959,8 +959,9 @@ extern int ZEXPORT zipOpenNewFileInZip4_64(zipFile file, const char *filename, c
         zi->ci.dos_date = 0;
     else
     {
-        if (zipfi->dos_date != 0)
-            zi->ci.dos_date = zipfi->dos_date;
+        // Always assign the value from zipfi, even if it's 0.
+        // This ensures zi->ci.dos_date is initialized.
+        zi->ci.dos_date = zipfi->dos_date;
     }
 
     zi->ci.method = method;
