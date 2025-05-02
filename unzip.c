@@ -288,6 +288,7 @@ static uint64_t unzSearchCentralDir(const zlib_filefunc64_32_def *pzlib_filefunc
             break;
 
         for (i = read_size - 3; (i--) > 0;)
+        {
             if (((*(buf+i)) == (ENDHEADERMAGIC & 0xff)) &&
                 ((*(buf+i+1)) == (ENDHEADERMAGIC >> 8 & 0xff)) &&
                 ((*(buf+i+2)) == (ENDHEADERMAGIC >> 16 & 0xff)) &&
@@ -296,6 +297,7 @@ static uint64_t unzSearchCentralDir(const zlib_filefunc64_32_def *pzlib_filefunc
                 pos_found = read_pos+i;
                 break;
             }
+        }
 
         if (pos_found != 0)
             break;
@@ -365,7 +367,6 @@ static unzFile unzOpenInternal(const void *path, zlib_filefunc64_32_def *pzlib_f
         us.z_filefunc = *pzlib_filefunc64_32_def;
 
     us.filestream = ZOPEN64(us.z_filefunc, path, ZLIB_FILEFUNC_MODE_READ | ZLIB_FILEFUNC_MODE_EXISTING);
-
     if (us.filestream == NULL)
         return NULL;
 
@@ -462,7 +463,9 @@ static unzFile unzOpenInternal(const void *path, zlib_filefunc64_32_def *pzlib_f
         }
     }
     else
-        err = UNZ_ERRNO;
+    {
+        err = UNZ_BADZIPFILE;
+    }
 
     if ((err == UNZ_OK) && (central_pos < us.offset_central_dir + us.size_central_dir))
         err = UNZ_BADZIPFILE;
@@ -496,6 +499,12 @@ static unzFile unzOpenInternal(const void *path, zlib_filefunc64_32_def *pzlib_f
         *s = us;
         unzGoToFirstFile((unzFile)s);
     }
+
+    if (err == UNZ_BADZIPFILE)
+    {
+        errno = EINVAL;
+    }
+
     return (unzFile)s;
 }
 

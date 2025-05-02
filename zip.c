@@ -670,10 +670,10 @@ extern zipFile ZEXPORT zipOpen4(const void *path, int append, uint64_t disk_size
     {
         /* Read and Cache Central Directory Records */
         central_pos = zipSearchCentralDir(&ziinit.z_filefunc,ziinit.filestream);
-        /* Disable to allow appending to empty ZIP archive (must be standard zip, not zip64)
-            if (central_pos == 0)
-                err = ZIP_ERRNO;
-        */
+        if (central_pos == 0)
+        {
+            err = ZIP_BADZIPFILE;
+        }
 
         if (err == ZIP_OK)
         {
@@ -792,6 +792,10 @@ extern zipFile ZEXPORT zipOpen4(const void *path, int append, uint64_t disk_size
             ZCLOSE64(ziinit.z_filefunc, ziinit.filestream);
             TRYFREE(ziinit.globalcomment);
             TRYFREE(zi);
+            if (err == ZIP_BADZIPFILE)
+            {
+                errno = EINVAL;
+            }
             return NULL;
         }
 
