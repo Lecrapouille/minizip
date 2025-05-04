@@ -597,6 +597,66 @@ static uint64_t zipSearchCentralDir64(const zlib_filefunc64_32_def *pzlib_filefu
     return offset;
 }
 
+/**
+ * @brief Check if the zip file is empty (only contains an EOCD record).
+ *
+ * @param[in] pzlib_filefunc_def  I/O functions structure.
+ * @param[in,out] filestream      File stream to check.
+ * @return 1 if the zip file is empty, 0 otherwise.
+ */
+static int isDummyZip(const zlib_filefunc64_32_def *pzlib_filefunc_def, voidpf filestream)
+{
+    uint64_t original_pos = 0;
+    uint32_t signature = 0;
+    uint16_t num_disk = 0;
+    uint16_t num_disk_start_cd = 0;
+    uint16_t num_entries_disk = 0;
+    uint16_t num_entries_total = 0;
+    uint32_t cd_size = 0;
+    uint32_t cd_offset = 0;
+    uint16_t comment_len = 0;
+    int is_dummy = 0;
+    int ret_seek = 0;
+
+    // Store current position
+    original_pos = ZTELL64(*pzlib_filefunc_def, filestream);
+    if (original_pos == (uint64_t)-1) // Error getting position
+        return 0;
+
+    // Go to the beginning of the file
+    ret_seek = ZSEEK64(*pzlib_filefunc_def, filestream, 0, ZLIB_FILEFUNC_SEEK_SET);
+    if (ret_seek != 0)
+        return 0; // Cannot seek to beginning
+
+    // Read the EOCD fields
+    if (zipReadUInt32(pzlib_filefunc_def, filestream, &signature) != ZIP_OK) goto cleanup;
+    if (zipReadUInt16(pzlib_filefunc_def, filestream, &num_disk) != ZIP_OK) goto cleanup;
+    if (zipReadUInt16(pzlib_filefunc_def, filestream, &num_disk_start_cd) != ZIP_OK) goto cleanup;
+    if (zipReadUInt16(pzlib_filefunc_def, filestream, &num_entries_disk) != ZIP_OK) goto cleanup;
+    if (zipReadUInt16(pzlib_filefunc_def, filestream, &num_entries_total) != ZIP_OK) goto cleanup;
+    if (zipReadUInt32(pzlib_filefunc_def, filestream, &cd_size) != ZIP_OK) goto cleanup;
+    if (zipReadUInt32(pzlib_filefunc_def, filestream, &cd_offset) != ZIP_OK) goto cleanup;
+    if (zipReadUInt16(pzlib_filefunc_def, filestream, &comment_len) != ZIP_OK) goto cleanup;
+
+    // Check if it matches the empty zip EOCD structure
+    if (signature == ENDHEADERMAGIC &&
+        num_disk == 0 &&
+        num_disk_start_cd == 0 &&
+        num_entries_disk == 0 &&
+        num_entries_total == 0 &&
+        cd_size == 0 &&
+        cd_offset == 0 &&
+        comment_len == 0)
+    {
+        is_dummy = 1;
+    }
+
+cleanup:
+    // Restore original position (ignore error if already failed)
+    ZSEEK64(*pzlib_filefunc_def, filestream, original_pos, ZLIB_FILEFUNC_SEEK_SET);
+    return is_dummy;
+}
+
 extern zipFile ZEXPORT zipOpen4(const void *path, int append, uint64_t disk_size, const char **globalcomment,
     zlib_filefunc64_32_def *pzlib_filefunc64_32_def)
 {
@@ -669,16 +729,19 @@ extern zipFile ZEXPORT zipOpen4(const void *path, int append, uint64_t disk_size
     if (append == APPEND_STATUS_ADDINZIP)
     {
         /* Read and Cache Central Directory Records */
-        central_pos = zipSearchCentralDir(&ziinit.z_filefunc,ziinit.filestream);
+        central_pos = zipSearchCentralDir(&ziinit.z_filefunc, ziinit.filestream);
         if (central_pos == 0)
         {
-            err = ZIP_BADZIPFILE;
+            if (!isDummyZip(&ziinit.z_filefunc, ziinit.filestream))
+            {
+                err = ZIP_BADZIPFILE;
+            }
         }
 
         if (err == ZIP_OK)
         {
             /* Read end of central directory info */
-            if (ZSEEK64(ziinit.z_filefunc, ziinit.filestream, central_pos,ZLIB_FILEFUNC_SEEK_SET) != 0)
+            if (ZSEEK64(ziinit.z_filefunc, ziinit.filestream, central_pos, ZLIB_FILEFUNC_SEEK_SET) != 0)
                 err = ZIP_ERRNO;
 
             /* The signature, already checked */
