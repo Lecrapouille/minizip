@@ -428,7 +428,10 @@ static unzFile unzOpenInternal(const void *path, zlib_filefunc64_32_def *pzlib_f
 
     us.filestream = ZOPEN64(us.z_filefunc, path, ZLIB_FILEFUNC_MODE_READ | ZLIB_FILEFUNC_MODE_EXISTING);
     if (us.filestream == NULL)
+    {
+        errno = ENOENT;  // Set errno to indicate file not found
         return NULL;
+    }
 
     us.filestream_with_CD = us.filestream;
     us.is_zip64 = 0;
@@ -539,6 +542,12 @@ static unzFile unzOpenInternal(const void *path, zlib_filefunc64_32_def *pzlib_f
     if (err != UNZ_OK)
     {
         ZCLOSE64(us.z_filefunc, us.filestream);
+        if (err == UNZ_BADZIPFILE)
+            errno = EINVAL;  // Invalid zip file format
+        else if (err == UNZ_ERRNO)
+            ;  // errno already set by the underlying function
+        else
+            errno = EIO;  // General I/O error
         return NULL;
     }
 
