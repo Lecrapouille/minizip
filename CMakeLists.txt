@@ -89,7 +89,7 @@ if(USE_AES)
 
   set_target_properties(aes minizip
      PROPERTIES
-     COMPILE_DEFINITIONS "O -DHAVE_AES")
+     COMPILE_DEFINITIONS "HAVE_AES")
 
   target_link_libraries(minizip aes)
 
