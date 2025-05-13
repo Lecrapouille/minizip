@@ -694,7 +694,10 @@ extern zipFile ZEXPORT zipOpen4(const void *path, int append, uint64_t disk_size
 
     ziinit.filestream = ZOPEN64(ziinit.z_filefunc, path, mode);
     if (ziinit.filestream == NULL)
+    {
+        errno = ENOENT;  // Set errno to indicate file not found
         return NULL;
+    }
 
     if (append == APPEND_STATUS_CREATEAFTER)
     {
